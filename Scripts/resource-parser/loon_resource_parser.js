@@ -1,6 +1,9 @@
 /**
  * Loon Resource Parser
  *
+ * Author: mc2u
+ * Repository: https://github.com/mc2u/Loon
+ *
  * 用于 Loon 节点订阅的资源解析脚本，可在订阅加载时自动整理节点名称。
  *
  * 功能：
