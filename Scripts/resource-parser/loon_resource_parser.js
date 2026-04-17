@@ -339,7 +339,7 @@ function refetchWithShadowrocketUA() {
     var req = {
         url: String($resourceUrl),
         headers: {
-            'User-Agent': 'Shadowrocket'
+            'User-Agent': 'Shadowrocket/3082'
         }
     };
 
