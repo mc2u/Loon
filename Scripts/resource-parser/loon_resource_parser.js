@@ -4,7 +4,7 @@
  * Author: mc2u
  * Repository: https://github.com/mc2u/Loon
  *
- * 用于 Loon 节点订阅的资源解析脚本，可在订阅加载时自动整理节点名称。
+ * 用于 Loon 节点订阅的资源解析脚本，主要用于节点名称修改；也可通过 `Shadowrocket/3082` User-Agent 重新拉取订阅，以解决部分订阅未向 Loon 下发新协议节点或下发不及时的情况。
  *
  * 功能：
  * - 添加节点名前缀
