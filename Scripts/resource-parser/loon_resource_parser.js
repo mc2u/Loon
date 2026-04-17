@@ -293,7 +293,7 @@ if (argStr) {
     }
 }
 
-if (argStr && !argStr.match(/^https?:\/\//) && HAS_SUPPORTED_PARAM && (argStr.indexOf('=') > 0 || doReset)) {
+if (argStr && !argStr.match(/^https?:\/\//) && HAS_SUPPORTED_PARAM) {
     canUpdateConfig = true;
 }
 
