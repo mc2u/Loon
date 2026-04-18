@@ -1,6 +1,6 @@
 # Loon Resource Parser
 
-用于 Loon 节点订阅的资源解析脚本，主要用于节点名称修改；也可通过 `Shadowrocket/3082` User-Agent 重新拉取订阅，以解决部分订阅未向 Loon 下发新协议节点或下发不及时的情况。
+用于 Loon 节点订阅的资源解析脚本，主要用于节点名称修改和排序；也可通过 `Shadowrocket/3082` User-Agent 重新拉取订阅，以解决部分订阅未向 Loon 下发新协议节点或下发不及时的情况。
 
 脚本文件：
 
@@ -14,6 +14,7 @@ loon_resource_parser.js
 - 添加节点名后缀
 - 去除节点名中的 emoji
 - 普通文本替换
+- 按关键词自定义节点排序
 - 使用 Shadowrocket User-Agent 重新拉取订阅
 - 按订阅 URL 保存独立配置
 - 重置当前订阅配置
@@ -32,6 +33,7 @@ loon_resource_parser.js
 | `suf=` | 给节点名添加后缀 | `suf=🍓` |
 | `emoji` | 去除节点名中的 emoji | `emoji` |
 | `rename=` | 普通文本替换 | `rename=香港:HK,日本:JP` |
+| `sort=` | 按关键词顺序排序节点 | `sort=香港,日本,新加坡,美国` |
 | `ua` | 使用 Shadowrocket User-Agent 重新拉取订阅 | `ua` |
 | `reset` | 清空当前订阅已保存的配置 | `reset` |
 
@@ -137,26 +139,46 @@ JP 02
 SG 03
 ```
 
-### 删除指定文字
+### `sort=`
 
-如果想删除某段文字，可以把替换后的内容留空。
+按关键词顺序对节点进行自定义排序。
+
+格式：
+
+```text
+sort=香港,日本,新加坡,美国
+```
+
+排序规则：
+
+- 按关键词在参数中的先后顺序排序
+- 节点名包含对应关键词时，会被排到对应位置
+- 未匹配到关键词的节点会排在最后
 
 示例：
 
 ```text
-rename=0.1倍:
+sort=香港,日本,新加坡,美国
 ```
 
 处理前：
 
 ```text
-香港 01 0.1倍
+美国 01
+新加坡 01
+香港 01
+日本 01
+香港 02
 ```
 
 处理后：
 
 ```text
 香港 01
+香港 02
+日本 01
+新加坡 01
+美国 01
 ```
 
 ### `ua`
@@ -183,10 +205,28 @@ reset
 
 ## 组合示例
 
+### 使用 Shadowrocket UA 并添加前缀
+
+```text
+ua&pre=🍑
+```
+
+### 使用 Shadowrocket UA 并去除 emoji
+
+```text
+ua&emoji
+```
+
+### 使用 Shadowrocket UA，去 emoji，删除倍率并添加前缀
+
+```text
+ua&emoji&rename=0.1倍:&pre=🍑
+```
+
 ### 去除 emoji 后添加前缀
 
 ```text
-pre=🍑&emoji
+emoji&pre=🍑
 ```
 
 处理前：
@@ -204,7 +244,7 @@ pre=🍑&emoji
 ### 删除倍率后添加前缀
 
 ```text
-pre=🍑&rename=0.1倍:
+rename=0.1倍:&pre=🍑
 ```
 
 处理前：
@@ -222,7 +262,7 @@ pre=🍑&rename=0.1倍:
 ### 同时添加前缀、后缀并去除 emoji
 
 ```text
-pre=🍑&suf=🍓&emoji
+emoji&pre=🍑&suf=🍓
 ```
 
 处理前：
@@ -237,35 +277,24 @@ pre=🍑&suf=🍓&emoji
 🍑香港 01🍓
 ```
 
-### 使用 Shadowrocket UA 并添加前缀
+### 按关键词顺序排序节点
 
 ```text
-ua&pre=🍑
-```
-
-### 使用 Shadowrocket UA 并去除 emoji
-
-```text
-ua&emoji
-```
-
-### 使用 Shadowrocket UA，去 emoji，删除倍率并添加前缀
-
-```text
-ua&pre=🍑&emoji&rename=0.1倍:
+sort=香港,日本,新加坡,美国
 ```
 
 ---
 
-## 处理顺序
+## 建议配置顺序
 
-脚本按以下顺序处理：
+脚本建议按以下顺序配置参数：
 
 1. 根据 `ua` 决定是否重新拉取订阅
 2. 去除 emoji
 3. 执行 `rename` 文本替换
 4. 添加 `pre` 前缀
 5. 添加 `suf` 后缀
+6. 按 `sort` 关键词顺序排序节点
 
 示例：
 
@@ -302,9 +331,10 @@ pre=🍑&emoji&rename=香港:HK
 
 ```text
 [解析器] 已读取本地配置
-[解析器] 已更新配置
-[解析器] 已重置配置
-[解析器] 当前配置: pre=🍑, emoji, rename=0.1倍:
-[解析器] 已修改节点数: 20
+[解析器] 已更新本地配置
+[解析器] 未更新本地配置
+[解析器] 当前配置: ua, emoji, rename=0.1倍:, pre=🍑, sort=香港,日本
+[解析器] 订阅内容长度: 8600
+[解析器] 已修改节点数: 24
 [解析器] 处理完成
 ```

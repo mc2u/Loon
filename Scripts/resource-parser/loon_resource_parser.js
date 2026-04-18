@@ -4,13 +4,14 @@
  * Author: mc2u
  * Repository: https://github.com/mc2u/Loon
  *
- * 用于 Loon 节点订阅的资源解析脚本，主要用于节点名称修改；也可通过 `Shadowrocket/3082` User-Agent 重新拉取订阅，以解决部分订阅未向 Loon 下发新协议节点或下发不及时的情况。
+ * 用于 Loon 节点订阅的资源解析脚本，主要用于节点名称修改和排序；也可通过 `Shadowrocket/3082` User-Agent 重新拉取订阅，以解决部分订阅未向 Loon 下发新协议节点或下发不及时的情况。
  *
  * 功能：
  * - 添加节点名前缀
  * - 添加节点名后缀
  * - 去除节点名中的 emoji
  * - 普通文本替换
+ * - 按关键词自定义节点排序
  * - 使用 Shadowrocket User-Agent 重新拉取订阅
  * - 按订阅 URL 保存独立配置
  * - 重置当前订阅配置
@@ -20,6 +21,7 @@
  * - suf=      给节点名添加后缀，例如 suf=🍓
  * - emoji     去除节点名中的 emoji
  * - rename=   普通文本替换，例如 rename=香港:HK,日本:JP
+ * - sort=     按关键词顺序排序节点，例如 sort=香港,日本,新加坡,美国
  * - ua        使用 Shadowrocket User-Agent 重新拉取订阅
  * - reset     清空当前订阅已保存的配置
  *
@@ -34,27 +36,31 @@
  *   将香港、日本、新加坡分别替换为 HK、JP、SG
  * - rename=0.1倍:
  *   删除节点名中的 0.1倍
+ * - sort=香港,日本,新加坡,美国
+ *   按关键词顺序排序节点
  * - ua
  *   使用 Shadowrocket User-Agent 重新拉取当前订阅
  * - reset
  *   清空当前订阅已保存的参数配置
  *
  * 组合示例：
- * - pre=🍑&emoji
- *   去除 emoji 后添加前缀
- * - pre=🍑&rename=0.1倍:
- *   删除倍率后添加前缀
- * - pre=🍑&suf=🍓&emoji
- *   同时添加前缀、后缀并去除 emoji
  * - ua&pre=🍑
  *   使用 Shadowrocket UA 并添加前缀
  * - ua&emoji
  *   使用 Shadowrocket UA 并去除 emoji
- * - ua&pre=🍑&emoji&rename=0.1倍:
+ * - ua&emoji&rename=0.1倍:&pre=🍑
  *   使用 Shadowrocket UA，去 emoji，删除倍率并添加前缀
+ * - emoji&pre=🍑
+ *   去除 emoji 后添加前缀
+ * - rename=0.1倍:&pre=🍑
+ *   删除倍率后添加前缀
+ * - emoji&pre=🍑&suf=🍓
+ *   同时添加前缀、后缀并去除 emoji
+ * - sort=香港,日本,新加坡,美国
+ *   按香港、日本、新加坡、美国的顺序排列节点
  *
- * 处理顺序：
- * - ua -> emoji -> rename -> pre -> suf
+ * 建议配置顺序：
+ * - ua -> emoji -> rename -> pre -> suf -> sort
  *
  * 配置说明：
  * - 参数按订阅 URL 单独保存
@@ -72,6 +78,7 @@ var pre = "";
 var suf = "";
 var emoji = false;
 var rename = "";
+var sort = "";
 var ua = false;
 var HAS_SUPPORTED_PARAM = false;
 
@@ -82,7 +89,7 @@ function getStorageKey() {
 }
 
 function isSupportedParamKey(key) {
-    return key === 'pre' || key === 'suf' || key === 'emoji' || key === 'rename' || key === 'ua' || key === 'reset';
+    return key === 'pre' || key === 'suf' || key === 'emoji' || key === 'rename' || key === 'sort' || key === 'ua' || key === 'reset';
 }
 
 function cleanEmoji(text) {
@@ -119,6 +126,28 @@ function applyRename(name) {
         n = n.split(pairs[i][0]).join(pairs[i][1]);
     }
     return n;
+}
+
+function getSortIndex(name) {
+    if (!sort) return -1;
+    var rules = String(sort).split(',');
+    var n = String(name || '');
+    for (var i = 0; i < rules.length; i++) {
+        var rule = rules[i].trim();
+        if (rule && n.indexOf(rule) !== -1) return i;
+    }
+    return rules.length;
+}
+
+function sortItemsByName(items) {
+    if (!sort || !items.length) return items;
+    items.sort(function(a, b) {
+        var ai = getSortIndex(a.name);
+        var bi = getSortIndex(b.name);
+        if (ai !== bi) return ai - bi;
+        return a.index - b.index;
+    });
+    return items;
 }
 
 function modifyName(name) {
@@ -168,6 +197,7 @@ function renameLoonStyleText(text) {
     var lines = raw.split('\n');
     var output = [];
     var count = 0;
+    var items = [];
 
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim();
@@ -180,11 +210,17 @@ function renameLoonStyleText(text) {
         if (eqPos > 0) {
             var name = line.substring(0, eqPos).trim();
             var value = line.substring(eqPos + 1).trim();
-            line = modifyName(name) + '=' + value;
+            items.push({ index: items.length, name: modifyName(name), value: value });
             count++;
+            continue;
         }
 
         output.push(line);
+    }
+
+    items = sortItemsByName(items);
+    for (var j = 0; j < items.length; j++) {
+        output.push(items[j].name + '=' + items[j].value);
     }
 
     console.log('[解析器] 已修改节点数: ' + count);
@@ -198,6 +234,7 @@ function renameBase64UriList(text) {
 
     var lines = normalizeText(decoded).split('\n');
     var changed = 0;
+    var items = [];
 
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim();
@@ -209,13 +246,29 @@ function renameBase64UriList(text) {
             var oldName = '';
             try { oldName = decodeURIComponent(frag); }
             catch (e) { oldName = frag; }
-            var newName = modifyName(oldName);
-            lines[i] = left + encodeURIComponent(newName);
+            items.push({ index: items.length, name: modifyName(oldName), left: left });
             changed++;
+        } else {
+            items.push({ index: items.length, name: '', raw: line, noHash: true });
         }
     }
 
-    var encoded = base64EncodeUnicode(lines.join('\n'));
+    var sortable = [];
+    var passthrough = [];
+    for (var j = 0; j < items.length; j++) {
+        if (items[j].noHash) passthrough.push(items[j]);
+        else sortable.push(items[j]);
+    }
+
+    sortable = sortItemsByName(sortable);
+    var merged = sortable.concat(passthrough);
+    var output = [];
+    for (var k = 0; k < merged.length; k++) {
+        if (merged[k].noHash) output.push(merged[k].raw);
+        else output.push(merged[k].left + encodeURIComponent(merged[k].name));
+    }
+
+    var encoded = base64EncodeUnicode(output.join('\n'));
     if (!encoded) return null;
 
     console.log('[解析器] 已修改节点数: ' + changed);
@@ -225,19 +278,23 @@ function renameBase64UriList(text) {
 function processResourceContent(content) {
     var raw = normalizeText(content);
     var configParts = [];
-    if (pre) configParts.push('pre=' + pre);
-    if (suf) configParts.push('suf=' + suf);
+    if (ua) configParts.push('ua');
     if (emoji) configParts.push('emoji');
     if (rename) configParts.push('rename=' + rename);
-    if (ua) configParts.push('ua');
+    if (pre) configParts.push('pre=' + pre);
+    if (suf) configParts.push('suf=' + suf);
+    if (sort) configParts.push('sort=' + sort);
     console.log('[解析器] 当前配置: ' + (configParts.length ? configParts.join(', ') : '无'));
     console.log('[解析器] 订阅内容长度: ' + raw.length);
 
     var trimmed = raw.trim();
-    if (!trimmed) return "";
+    if (!trimmed) {
+        return "";
+    }
 
+    var base64Result = null;
     if (looksLikeBase64(trimmed)) {
-        var base64Result = renameBase64UriList(trimmed);
+        base64Result = renameBase64UriList(trimmed);
         if (base64Result !== null) return base64Result;
     }
 
@@ -261,6 +318,7 @@ if (savedConfig) {
         suf = c.suf || "";
         emoji = c.emoji || false;
         rename = c.rename || "";
+        sort = c.sort || "";
         ua = c.ua === true;
         console.log('[解析器] 已读取本地配置');
     } catch (e) {
@@ -303,6 +361,7 @@ if (canUpdateConfig) {
         suf = "";
         emoji = false;
         rename = "";
+        sort = "";
         ua = false;
     }
     for (var j = 0; j < params.length; j++) {
@@ -314,16 +373,16 @@ if (canUpdateConfig) {
         else if (key === 'suf') suf = value;
         else if (key === 'emoji') emoji = value === '';
         else if (key === 'rename') rename = value;
+        else if (key === 'sort') sort = value;
         else if (key === 'ua') ua = value === '';
         else if (key === 'reset') {}
     }
 
-    var config = { pre: pre, suf: suf, emoji: emoji, rename: rename, ua: ua };
+    var config = { pre: pre, suf: suf, emoji: emoji, rename: rename, sort: sort, ua: ua };
     $persistentStore.write(JSON.stringify(config), STORAGE_KEY);
-    if (doReset) console.log('[解析器] 已重置配置');
-    else console.log('[解析器] 已更新配置');
+    console.log('[解析器] 已更新本地配置');
 } else {
-    console.log('[解析器] 未更新配置');
+    console.log('[解析器] 未更新本地配置');
 }
 
 function refetchWithShadowrocketUA() {
@@ -345,7 +404,7 @@ function refetchWithShadowrocketUA() {
         }
     };
 
-    console.log('[解析器] 已启用 Shadowrocket UA 拉取');
+    console.log('[解析器] 已启用 Shadowrocket UA');
 
     $httpClient.get(req, function(error, response, data) {
         if (error || !data) {
