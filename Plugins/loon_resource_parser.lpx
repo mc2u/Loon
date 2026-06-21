@@ -20,4 +20,4 @@ userAgent = input,"Shadowrocket/3308 CFNetwork/3886.100.1 Darwin/27.0.0 iPhone18
 ua = switch,false,tag=自定义 UA,desc=开启后使用自定义 User-Agent 重新拉取订阅。
 
 [Script]
-generic script-path=https://raw.githubusercontent.com/mc2u/Loon/refs/heads/main/Scripts/resource-parser/loon_resource_parser.js,tag=资源解析器,timeout=10,argument=[{pre},{suf},{emoji},{rename},{sort},{ua},{userAgent}]
+generic script-path=https://raw.githubusercontent.com/mc2u/Loon/refs/heads/main/Scripts/loon_resource_parser.js,tag=资源解析器,timeout=10,argument=[{pre},{suf},{emoji},{rename},{sort},{ua},{userAgent}]
