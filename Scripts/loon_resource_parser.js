@@ -35,6 +35,7 @@ var rename = "";
 var sort = "";
 var ua = false;
 var userAgent = "";
+var noCache = false;
 
 function str(v) {
   return v == null ? "" : String(v);
@@ -407,17 +408,11 @@ function refetchWithUserAgent() {
     finish(typeof $resource !== "undefined" ? $resource : "");
     return;
   }
+  var headers = { "User-Agent": userAgent };
+  if (noCache) headers["Cache-Control"] = "no-cache";
   var req = {
     url: String($resourceUrl),
-    headers: {
-      "User-Agent": userAgent,
-      "Accept": "*/*",
-      "Accept-Encoding": "gzip, deflate, br",
-      "Accept-Language": "zh-CN,zh-Hans;q=0.9",
-      "Cache-Control": "no-cache",
-      "Priority": "u=3"
-    },
-    alpn: "h2"
+    headers: headers
   };
   console.log("[解析器] 已启用自定义 UA: " + userAgent);
   $httpClient.get(req, function(error, response, data) {
@@ -450,6 +445,7 @@ function finish(content) {
     if (arg.sort !== undefined) sort = str(arg.sort);
     if (arg.ua !== undefined) ua = bool(arg.ua);
     if (arg.userAgent !== undefined) userAgent = str(arg.userAgent);
+    if (arg.noCache !== undefined) noCache = bool(arg.noCache);
   }
   parseRename();
   parseSort();
