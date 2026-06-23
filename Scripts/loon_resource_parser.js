@@ -218,6 +218,162 @@ function processBase64UriList(text) {
   return encoded;
 }
 
+function quoteValue(v) {
+  return '"' + str(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+}
+
+function yamlScalar(v) {
+  v = str(v).trim();
+  if (!v) return "";
+  var c = v.charAt(0);
+  if ((c === '"' && v.charAt(v.length - 1) === '"') || (c === "'" && v.charAt(v.length - 1) === "'")) {
+    return v.slice(1, -1);
+  }
+  if (v === "true") return true;
+  if (v === "false") return false;
+  if (/^-?\d+$/.test(v)) return parseInt(v, 10);
+  return v;
+}
+
+function parseClashYamlProxies(text) {
+  var lines = normalizeText(text).split("\n");
+  var inProxies = false;
+  var baseIndent = -1;
+  var current = null;
+  var stack = [];
+  var nodes = [];
+
+  function finishNode() {
+    if (current && current.name && current.type) nodes.push(current);
+    current = null;
+    stack = [];
+  }
+
+  function setNested(path, key, value) {
+    var obj = current;
+    for (var i = 0; i < path.length; i++) {
+      var p = path[i];
+      if (!obj[p]) obj[p] = {};
+      obj = obj[p];
+    }
+    obj[key] = value;
+  }
+
+  for (var i = 0; i < lines.length; i++) {
+    var raw = lines[i];
+    var trimmed = raw.trim();
+    if (!trimmed || trimmed.charAt(0) === "#") continue;
+    var mIndent = raw.match(/^\s*/);
+    var indent = mIndent ? mIndent[0].length : 0;
+
+    if (!inProxies) {
+      if (/^proxies\s*:\s*$/.test(trimmed)) {
+        inProxies = true;
+        baseIndent = indent;
+      }
+      continue;
+    }
+
+    if (indent <= baseIndent && /^[A-Za-z0-9_-]+\s*:/.test(trimmed)) {
+      finishNode();
+      break;
+    }
+
+    var item = raw.match(/^\s*-\s+(.*)$/);
+    if (item) {
+      finishNode();
+      current = {};
+      stack = [];
+      var rest = item[1].trim();
+      var mm = rest.match(/^([^:]+):\s*(.*)$/);
+      if (mm) current[mm[1].trim()] = yamlScalar(mm[2]);
+      continue;
+    }
+
+    if (!current) continue;
+    var kv = trimmed.match(/^([^:]+):\s*(.*)$/);
+    if (!kv) continue;
+    var key = kv[1].trim();
+    var value = kv[2];
+    while (stack.length && indent <= stack[stack.length - 1].indent) stack.pop();
+    var path = stack.map(function(x) { return x.key; });
+    if (value.trim() === "") {
+      setNested(path, key, {});
+      stack.push({ indent: indent, key: key });
+    } else {
+      setNested(path, key, yamlScalar(value));
+    }
+  }
+  finishNode();
+  return nodes;
+}
+
+function boolOption(key, value) {
+  if (value === undefined || value === null || value === "") return null;
+  return key + "=" + (value === true || str(value).toLowerCase() === "true" ? "true" : "false");
+}
+
+function convertClashProxy(node, index) {
+  var type = str(node.type).toLowerCase();
+  var name = modifyName(node.name || ("node-" + index));
+  var server = node.server;
+  var port = node.port;
+  var opts = [];
+  var line = "";
+
+  if (!server || !port) return null;
+
+  if (type === "anytls") {
+    line = name + " = AnyTLS," + server + "," + port + "," + quoteValue(node.password || "");
+    var skip = boolOption("skip-cert-verify", node["skip-cert-verify"]);
+    if (skip) opts.push(skip);
+    if (node.sni) opts.push("sni=" + node.sni);
+    var udp = boolOption("udp", node.udp);
+    if (udp) opts.push(udp);
+    opts.push("block-quic=false");
+    return line + (opts.length ? "," + opts.join(",") : "");
+  }
+
+  if (type === "vless") {
+    line = name + " = VLESS," + server + "," + port + "," + quoteValue(node.uuid || "");
+    opts.push("transport=tcp");
+    if (node.flow) opts.push("flow=" + node.flow);
+    if (node.tls !== undefined) opts.push("over-tls=" + (node.tls ? "true" : "false"));
+    else opts.push("over-tls=false");
+    var reality = node["reality-opts"] || {};
+    if (reality["public-key"]) opts.push("public-key=" + quoteValue(reality["public-key"]));
+    if (reality["short-id"]) opts.push("short-id=" + reality["short-id"]);
+    if (node.servername) opts.push("sni=" + node.servername);
+    else if (node.sni) opts.push("sni=" + node.sni);
+    var skip2 = boolOption("skip-cert-verify", node["skip-cert-verify"]);
+    if (skip2) opts.push(skip2);
+    var udp2 = boolOption("udp", node.udp);
+    if (udp2) opts.push(udp2);
+    return line + "," + opts.join(",");
+  }
+
+  return null;
+}
+
+function processClashYaml(text) {
+  if (!/^\s*proxies\s*:/m.test(text)) return null;
+  var proxies = parseClashYamlProxies(text);
+  if (!proxies.length) return null;
+  var items = [];
+  var skipped = 0;
+  for (var i = 0; i < proxies.length; i++) {
+    var line = convertClashProxy(proxies[i], i + 1);
+    if (line) {
+      var name = line.split("=")[0].trim();
+      items.push({ index: items.length, name: name, line: line });
+    } else {
+      skipped++;
+    }
+  }
+  sortItemsByName(items);
+  console.log("[解析器] 已转换 YAML 节点数: " + items.length + (skipped ? ", 跳过: " + skipped : ""));
+  return items.map(function(x) { return x.line; }).join("\n");
+}
 function processResource(content) {
   var raw = normalizeText(content);
   var configParts = [];
@@ -235,6 +391,8 @@ function processResource(content) {
     var base64Result = processBase64UriList(trimmed);
     if (base64Result !== null) return base64Result;
   }
+  var yamlResult = processClashYaml(trimmed);
+  if (yamlResult !== null) return yamlResult;
   return processLoonStyle(trimmed);
 }
 
