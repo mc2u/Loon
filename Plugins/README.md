@@ -7,3 +7,7 @@
 一键导入：
 
 [导入资源解析器](https://www.nsloon.com/openloon/import?plugin=https%3A%2F%2Fraw.githubusercontent.com%2Fmc2u%2FLoon%2Frefs%2Fheads%2Fmain%2FPlugins%2Floon_resource_parser.lpx)
+
+## 更新记录
+
+- 20260623：增加 YAML 格式转换（简易）。
