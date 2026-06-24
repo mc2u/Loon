@@ -236,6 +236,66 @@ function yamlScalar(v) {
   return v;
 }
 
+function splitFlowItems(s) {
+  var items = [];
+  var cur = "";
+  var quote = "";
+  var depth = 0;
+  for (var i = 0; i < s.length; i++) {
+    var ch = s.charAt(i);
+    if (quote) {
+      cur += ch;
+      if (ch === quote && s.charAt(i - 1) !== "\\") quote = "";
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      cur += ch;
+      continue;
+    }
+    if (ch === "{" || ch === "[") depth++;
+    else if (ch === "}" || ch === "]") depth--;
+    if (ch === "," && depth === 0) {
+      items.push(cur.trim());
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur.trim()) items.push(cur.trim());
+  return items;
+}
+
+function parseFlowMap(s) {
+  s = str(s).trim();
+  if (s.charAt(0) === "{" && s.charAt(s.length - 1) === "}") s = s.slice(1, -1);
+  var obj = {};
+  var pairs = splitFlowItems(s);
+  for (var i = 0; i < pairs.length; i++) {
+    var part = pairs[i];
+    var quote = "";
+    var depth = 0;
+    var idx = -1;
+    for (var j = 0; j < part.length; j++) {
+      var ch = part.charAt(j);
+      if (quote) {
+        if (ch === quote && part.charAt(j - 1) !== "\\") quote = "";
+        continue;
+      }
+      if (ch === '"' || ch === "'") { quote = ch; continue; }
+      if (ch === "{" || ch === "[") depth++;
+      else if (ch === "}" || ch === "]") depth--;
+      else if (ch === ":" && depth === 0) { idx = j; break; }
+    }
+    if (idx < 0) continue;
+    var key = part.slice(0, idx).trim();
+    var value = part.slice(idx + 1).trim();
+    if (value.charAt(0) === "{" && value.charAt(value.length - 1) === "}") obj[key] = parseFlowMap(value);
+    else obj[key] = yamlScalar(value);
+  }
+  return obj;
+}
+
 function parseClashYamlProxies(text) {
   var lines = normalizeText(text).split("\n");
   var inProxies = false;
@@ -286,6 +346,11 @@ function parseClashYamlProxies(text) {
       current = {};
       stack = [];
       var rest = item[1].trim();
+      if (rest.charAt(0) === "{" && rest.charAt(rest.length - 1) === "}") {
+        current = parseFlowMap(rest);
+        finishNode();
+        continue;
+      }
       var mm = rest.match(/^([^:]+):\s*(.*)$/);
       if (mm) current[mm[1].trim()] = yamlScalar(mm[2]);
       continue;
@@ -335,15 +400,37 @@ function convertClashProxy(node, index) {
     return line + (opts.length ? "," + opts.join(",") : "");
   }
 
+  if (type === "hysteria2" || type === "hy2") {
+    line = name + " = Hysteria2," + server + "," + port + "," + quoteValue(node.auth || node.password || "");
+    var skipHy2 = boolOption("skip-cert-verify", node["skip-cert-verify"]);
+    if (skipHy2) opts.push(skipHy2);
+    if (node.sni) opts.push("sni=" + node.sni);
+    var udpHy2 = boolOption("udp", node.udp);
+    if (udpHy2) opts.push(udpHy2);
+    if (node["obfs-password"]) opts.push("salamander-password=" + node["obfs-password"]);
+    return line + (opts.length ? "," + opts.join(",") : "");
+  }
+
   if (type === "vless") {
     line = name + " = VLESS," + server + "," + port + "," + quoteValue(node.uuid || "");
-    opts.push("transport=tcp");
-    if (node.flow) opts.push("flow=" + node.flow);
+    var network = str(node.network).toLowerCase();
+    if (network === "ws") {
+      opts.push("transport=ws");
+      var wsOpts = node["ws-opts"] || {};
+      var headers = wsOpts.headers || node["ws-headers"] || {};
+      var path = wsOpts.path || node["ws-path"];
+      var host = headers.Host || headers.host || node.host;
+      if (path) opts.push("path=" + path);
+      if (host) opts.push("host=" + host);
+    } else {
+      opts.push("transport=tcp");
+      if (node.flow && str(node.flow) !== "null") opts.push("flow=" + node.flow);
+      var reality = node["reality-opts"] || {};
+      if (reality["public-key"]) opts.push("public-key=" + quoteValue(reality["public-key"]));
+      if (reality["short-id"]) opts.push("short-id=" + reality["short-id"]);
+    }
     if (node.tls !== undefined) opts.push("over-tls=" + (node.tls ? "true" : "false"));
     else opts.push("over-tls=false");
-    var reality = node["reality-opts"] || {};
-    if (reality["public-key"]) opts.push("public-key=" + quoteValue(reality["public-key"]));
-    if (reality["short-id"]) opts.push("short-id=" + reality["short-id"]);
     if (node.servername) opts.push("sni=" + node.servername);
     else if (node.sni) opts.push("sni=" + node.sni);
     var skip2 = boolOption("skip-cert-verify", node["skip-cert-verify"]);
