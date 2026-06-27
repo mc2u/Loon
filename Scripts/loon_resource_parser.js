@@ -140,14 +140,6 @@ function base64DecodeUnicode(s) {
   } catch (e) { return null; }
 }
 
-function base64EncodeUnicode(s) {
-  try {
-    var enc = encodeURIComponent(s).replace(/%([0-9A-F]{2})/g, function(m, p1) {
-      return String.fromCharCode(parseInt(p1, 16));
-    });
-    return btoa(enc);
-  } catch (e) { return null; }
-}
 
 function looksLikeBase64(text) {
   var s = str(text).replace(/\s+/g, "");
@@ -184,6 +176,14 @@ function processLoonStyle(text) {
   return output.join("\n");
 }
 
+function extractRemarkName(line) {
+  var m = str(line).match(/[?&]remark=([^&#]*)/);
+  if (!m) return null;
+  var name = m[1];
+  try { name = decodeURIComponent(name); } catch (e) {}
+  return name;
+}
+
 function processBase64UriList(text) {
   var compact = str(text).replace(/\s+/g, "");
   var decoded = base64DecodeUnicode(compact);
@@ -202,7 +202,12 @@ function processBase64UriList(text) {
       try { oldName = decodeURIComponent(frag); } catch (e) { oldName = frag; }
       sortable.push({ index: sortable.length, name: modifyName(oldName), left: left });
     } else {
-      passthrough.push({ raw: line });
+      var remarkName = extractRemarkName(line);
+      if (remarkName) {
+        sortable.push({ index: sortable.length, name: modifyName(remarkName), left: line + "#" });
+      } else {
+        passthrough.push({ raw: line });
+      }
     }
   }
   sortable = sortItemsByName(sortable);
@@ -213,10 +218,9 @@ function processBase64UriList(text) {
       ? merged[k].left + encodeURIComponent(merged[k].name)
       : merged[k].raw);
   }
-  var encoded = base64EncodeUnicode(output.join("\n"));
-  if (!encoded) return null;
+  var plain = output.join("\n");
   console.log("[解析器] 已修改节点数: " + sortable.length);
-  return encoded;
+  return plain;
 }
 
 function quoteValue(v) {
