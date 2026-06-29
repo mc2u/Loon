@@ -62,17 +62,65 @@ function cleanEmoji(text) {
 
 var renamePairs = [];
 
+function splitEscaped(s, sep) {
+  var out = [];
+  var cur = "";
+  var esc = false;
+  s = str(s);
+  for (var i = 0; i < s.length; i++) {
+    var ch = s.charAt(i);
+    if (esc) {
+      cur += "\\" + ch;
+      esc = false;
+      continue;
+    }
+    if (ch === "\\") {
+      esc = true;
+      continue;
+    }
+    if (ch === sep) {
+      out.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  if (esc) cur += "\\";
+  out.push(cur);
+  return out;
+}
+
+function indexOfUnescaped(s, ch) {
+  var esc = false;
+  s = str(s);
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charAt(i);
+    if (esc) { esc = false; continue; }
+    if (c === "\\") { esc = true; continue; }
+    if (c === ch) return i;
+  }
+  return -1;
+}
+
+function unescapeRenameText(s) {
+  return str(s)
+    .replace(/\\\\/g, "\u0000")
+    .replace(/\\:/g, ":")
+    .replace(/\\,/g, ",")
+    .replace(/\u0000/g, "\\");
+}
+
 function parseRename() {
   renamePairs = [];
   if (!rename) return;
-  var items = str(rename).split(",");
+  var items = splitEscaped(rename, ",");
   for (var i = 0; i < items.length; i++) {
     var item = items[i];
     if (!item) continue;
-    var idx = item.indexOf(":");
+    var idx = indexOfUnescaped(item, ":");
     if (idx === -1) continue;
-    var from = item.slice(0, idx).trim();
-    var to = item.slice(idx + 1).trim();
+    var from = unescapeRenameText(item.slice(0, idx)).trim();
+    var to = unescapeRenameText(item.slice(idx + 1)).trim();
     if (from) renamePairs.push([from, to]);
   }
 }
