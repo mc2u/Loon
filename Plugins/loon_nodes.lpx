@@ -1,0 +1,18 @@
+#!name=节点助手
+#!desc=专注于散装节点管理填好节点回来点这里
+#!openUrl=loon://import?nodelist=http://nodes.loon
+#!author=mc2u[https://github.com/mc2u],吃白饭的大肥鱼[https://www.deepseek.com]
+#!homepage=https://github.com/mc2u/Loon
+#!icon=https://raw.githubusercontent.com/Loon0x00/Loon0x00.github.io/main/static/img/loon.png
+#!date=2026-09-23 04:00:00
+#!tag=节点,本地
+#!system=
+#!system_version=
+#!loon_version=3.5.1(998)
+#!type=normal
+
+[Argument]
+importNodes = input,"",tag=填写节点,desc=填写节点链接，一行一个（vless:// anytls:// ss:// vmess:// 等格式）
+
+[Script]
+request if ${url} ~= /^http:\/\/nodes\.loon/ then script("https://raw.githubusercontent.com/mc2u/Loon/refs/heads/main/Scripts/loon_nodes.js", {${importNodes}}) with tag="节点助手", img_url="https://raw.githubusercontent.com/Loon0x00/Loon0x00.github.io/main/static/img/loon.png", timeout=10
