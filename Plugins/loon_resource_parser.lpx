@@ -1,5 +1,5 @@
 #!name=资源解析器
-#!desc=主要用于 Loon 标准订阅，对 URI、Base64 URI 及 Clash/Mihomo YAML 订阅提供支持可能效果会有差异。可设置前后缀、去除 Emoji、文本替换、关键词排序、关键词排除节点和自定义 UA 拉取，支持逐行导入节点与订阅合并后统一处理。不适用于加密订阅，拉取失败或无法处理时回退原订阅，🎈请到订阅管理界面配置解析器。
+#!desc=主要用于 Loon 标准订阅，对 URI、Base64 URI 及 Clash/Mihomo YAML 订阅提供支持可能效果会有差异。可设置前后缀、去除 Emoji、文本替换、关键词排序、关键词排除节点、自定义 UA 拉取、TLS ClientHello 指纹修改。支持逐行导入节点与订阅合并后统一处理。不适用于加密订阅，拉取失败或无法处理时回退原订阅，🎈请到订阅管理界面配置解析器。
 #!author=mc2u[https://github.com/mc2u],吃白饭的大肥鱼[https://www.deepseek.com]
 #!tag=解析器,节点,订阅
 #!system=
