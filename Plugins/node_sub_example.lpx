@@ -1,0 +1,8 @@
+#!name=脚本获取节点生成订阅示例
+#!author=mc2u[https://github.com/mc2u],吃白饭的大肥鱼[https://www.deepseek.com]
+#!desc=这是一个使用脚本获取节点并导入loon订阅的自动化示例，添加或者更新此订阅时同步运行脚本拉取节点，首次使用点击导入链接即可（适用于自动化注册获取节点的脚本）。
+#!openUrl=loon://import?nodelist=http://nodes.example/loon
+
+
+[Script]
+request if ${url} ~= /^http:\/\/nodes\.example\/loon/ then script("https://raw.githubusercontent.com/mc2u/Loon/refs/heads/main/Scripts/node_sub_example.js") with tag="节点订阅示例", timeout=30
