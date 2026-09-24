@@ -2382,6 +2382,9 @@ function uriNodeAnytls(split) {
   var sid = uriPick(q, ["sid", "shortid", "short-id"]);
   if (pbk || sid) node["reality-opts"] = { "public-key": pbk, "short-id": sid };
   if (uriTruthy(uriPick(q, ["allowinsecure", "insecure", "skip-cert-verify"]))) node["skip-cert-verify"] = true;
+  // AnyTLS 依赖 TCP 复用承载 UDP，URI 规范本身不含 udp 参数，缺省按协议能力启用
+  var atUdp = uriPick(q, ["udp", "udp-relay"]);
+  node.udp = atUdp === "" ? true : uriTruthy(atUdp);
   return { node: node };
 }
 function uriNodeHttp(split) {
