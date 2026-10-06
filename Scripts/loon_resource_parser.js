@@ -690,7 +690,8 @@ function normalizeNonStandardUri(rawLine) {
       aid: "aid", alterid: "aid", scy: "scy", cipher: "scy",
       net: "net", network: "net", type: "type", headertype: "type",
       host: "host", path: "path", sni: "sni", servername: "sni", peer: "sni",
-      alpn: "alpn", fp: "fp", ps: "ps", remark: "ps", remarks: "ps"
+      alpn: "alpn", fp: "fp", ps: "ps", remark: "ps", remarks: "ps",
+      obfsparam: "host", wspath: "path", "ws-path": "path", "ws-host": "host"
     };
     for (var i = 0; i < pairs.length; i++) {
       var key = pairs[i].key;
@@ -698,6 +699,12 @@ function normalizeNonStandardUri(rawLine) {
       var value = str(decodeUriComponentLoose(pairs[i].value));
       if (lower === "tls") {
         vmessObject.tls = truthyParam(pairs[i].value) ? "tls" : "";
+        continue;
+      }
+      if (lower === "obfs") {
+        var obfsNet = value.toLowerCase();
+        if (obfsNet === "websocket" || obfsNet === "ws") vmessObject.net = "ws";
+        else if (obfsNet === "http" || obfsNet === "h2") vmessObject.net = "http";
         continue;
       }
       var target = vmessFields[lower];
@@ -1709,6 +1716,8 @@ function clashConvertHysteria2(node, name) {
   var opts = [];
   var obfsRaw = clashText(node.obfs).trim();
   var obfs = obfsRaw.toLowerCase();
+  // "none"/"null" 等占位符表示未启用混淆（部分订阅显式写 obfs=none），不应视为不支持
+  if (obfs === "none" || obfs === "null" || obfs === "nil" || obfs === "undefined") obfs = "";
   if (obfs && obfs !== "salamander") return { reason: "unsupported-obfs:" + (/^[a-z0-9+._-]{1,24}$/.test(obfs) ? obfs : "unknown") };
   var obfsPassword = clashText(node["obfs-password"] || node.obfs_password);
   if (obfsPassword) opts.push("salamander-password=" + clashQuote(obfsPassword));
@@ -2269,6 +2278,7 @@ function uriNodeVmess(split) {
     if (host) opts.headers = { Host: host };
     node["ws-opts"] = opts;
   }
+  if (uriTruthy(obj.tfo) || uriTruthy(obj["fast-open"])) node.tfo = true;
   return { node: node };
 }
 function uriNodeTrojan(split) {
