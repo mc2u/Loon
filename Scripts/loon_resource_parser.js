@@ -1106,7 +1106,7 @@ function clashCanonicalKey(key) {
 }
 function parseClashYamlProxies(text) {
   var source = protectYamlScalars(preprocessYaml(text));
-  return parseClashYamlProxiesFallback(source);
+  return parseClashYamlProxiesBody(source);
 }
 function stripYamlComment(s) {
   s = str(s);
@@ -1132,7 +1132,7 @@ function unquoteYamlKey(k) {
   }
   return k;
 }
-function parseClashYamlProxiesFallback(text) {
+function parseClashYamlProxiesBody(text) {
   var lines = normalizeText(text).split("\n");
   var inProxies = false;
   var baseIndent = -1;
@@ -1720,7 +1720,7 @@ function clashConvertHysteria2(node, name) {
   if (obfs === "none" || obfs === "null" || obfs === "nil" || obfs === "undefined") obfs = "";
   if (obfs && obfs !== "salamander") return { reason: "unsupported-obfs:" + (/^[a-z0-9+._-]{1,24}$/.test(obfs) ? obfs : "unknown") };
   var obfsPassword = clashText(node["obfs-password"] || node.obfs_password);
-  if (obfsPassword) opts.push("salamander-password=" + clashQuote(obfsPassword));
+  if (obfsPassword) opts.push("salamander-password=" + clashValue(obfsPassword));
   clashPush(opts, "sni", clashValue(clashSni(node)));
   clashPushTlsVerify(node, opts, "hysteria2");
   clashPush(opts, "alpn", clashValue(clashAlpn(node)));
